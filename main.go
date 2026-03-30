@@ -43,8 +43,7 @@ func generateWingID() string {
 }
 
 func connectDB() {
-    // --- 🟢 CLOUD DATABASE FIX 🟢 ---
-    // Look for a cloud database first. If empty, use the local one for your laptop testing!
+    // Look for a cloud database first. If empty, use the local one.
     connStr := os.Getenv("DATABASE_URL")
     if connStr == "" {
         connStr = "host=localhost user=wingsuser password=wingspass dbname=wingsconnect sslmode=disable"
@@ -52,18 +51,41 @@ func connectDB() {
 
     var err error
     db, err = sql.Open("postgres", connStr)
-
     if err != nil {
         log.Fatal(err)
     }
 
     err = db.Ping()
-
     if err != nil {
         log.Fatal("Database connection failed")
     }
 
-    log.Println("Database connected")
+    // --- 🟢 NEW: AUTO-BUILD CLOUD TABLES 🟢 ---
+    createUsersTable := `
+    CREATE TABLE IF NOT EXISTS users (
+        wing_id TEXT PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        email TEXT,
+        public_key TEXT,
+        avatar TEXT
+    );`
+    _, err = db.Exec(createUsersTable)
+    if err != nil { log.Println("Error creating users table:", err) }
+
+    createMessagesTable := `
+    CREATE TABLE IF NOT EXISTS messages (
+        id SERIAL PRIMARY KEY,
+        sender TEXT NOT NULL,
+        receiver TEXT NOT NULL,
+        ciphertext TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );`
+    _, err = db.Exec(createMessagesTable)
+    if err != nil { log.Println("Error creating messages table:", err) }
+    // -----------------------------------------
+
+    log.Println("Database connected & tables verified!")
 }
 
 func registerUser(c *gin.Context) {
